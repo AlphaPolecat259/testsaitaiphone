@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f5f3ec">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Мой день">
+  <meta name="description" content="Небольшой список дел, который помогает спокойно прожить день.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <title>Мой день</title>
+  <style>
+    :root { color-scheme: light; --ink:#202b25; --muted:#788078; --green:#285c49; --paper:#f5f3ec; --line:#e7e5dc; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:var(--paper); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; -webkit-font-smoothing:antialiased; }
+    main { width:min(100%,540px); margin:0 auto; min-height:100svh; padding:calc(22px + env(safe-area-inset-top)) 22px calc(28px + env(safe-area-inset-bottom)); }
+    header { display:flex; justify-content:space-between; align-items:center; color:var(--muted); font-size:13px; font-weight:600; letter-spacing:.02em; }
+    .badge { background:#e6ece4; color:var(--green); border-radius:99px; padding:8px 12px; }
+    h1 { font-family:Georgia,serif; font-size:clamp(43px,12vw,62px); line-height:.98; letter-spacing:-.055em; font-weight:500; margin:48px 0 12px; }
+    .sub { margin:0; color:var(--muted); font-size:16px; line-height:1.5; }
+    .progress-card { margin:30px 0 26px; padding:18px 20px; background:#e9eee7; border-radius:20px; }
+    .progress-top { display:flex; justify-content:space-between; align-items:center; font-size:14px; font-weight:600; }
+    .progress-count { color:var(--green); }
+    .track { height:6px; margin-top:14px; background:#d3ddd2; border-radius:99px; overflow:hidden; }
+    .fill { height:100%; width:0; background:var(--green); border-radius:99px; transition:width .25s ease; }
+    .section-title { margin:27px 0 12px; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.1em; font-weight:700; }
+    .list { display:grid; gap:10px; }
+    .task { display:flex; align-items:center; gap:13px; width:100%; min-height:62px; padding:14px 15px; border:1px solid var(--line); border-radius:17px; background:#fffefa; text-align:left; color:inherit; font:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+    .check { flex:none; display:grid; place-items:center; width:23px; height:23px; border:1.5px solid #c8cec6; border-radius:50%; color:white; transition:all .18s ease; }
+    .task.done .check { border-color:var(--green); background:var(--green); }
+    .task.done .label { color:#929991; text-decoration:line-through; }
+    .label { flex:1; font-size:15px; }
+    .delete { width:34px; height:34px; border:0; border-radius:50%; background:transparent; color:#a0a59e; font-size:20px; cursor:pointer; }
+    .delete:active { background:#f0eee7; }
+    form { display:flex; gap:9px; margin-top:13px; }
+    input { min-width:0; flex:1; height:50px; padding:0 15px; border:1px solid var(--line); border-radius:15px; background:#fffefa; color:var(--ink); font:inherit; font-size:15px; outline:none; }
+    input:focus { border-color:#8ca394; box-shadow:0 0 0 3px #e6ece4; }
+    .add { width:50px; border:0; border-radius:15px; background:var(--green); color:white; font-size:25px; cursor:pointer; }
+    .quote { margin-top:34px; padding:20px 20px 19px; border-radius:20px; background:#e8ded0; color:#4e463a; }
+    .quote small { display:block; margin-bottom:8px; color:#897c69; font-size:11px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; }
+    .quote p { margin:0; font-family:Georgia,serif; font-size:19px; line-height:1.35; }
+    .hint { margin:24px 4px 0; color:#92978f; font-size:12px; line-height:1.5; text-align:center; }
+    @media (prefers-reduced-motion:reduce) { *,*::before,*::after { transition:none !important; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header><span id="today"></span><span class="badge">☀︎  спокойно</span></header>
+    <h1>Мой<br>день</h1>
+    <p class="sub">Не нужно успеть всё.<br>Достаточно начать с одного.</p>
+    <section class="progress-card" aria-label="Прогресс на сегодня">
+      <div class="progress-top"><span>Маленькие шаги</span><span class="progress-count" id="count">0 из 0</span></div>
+      <div class="track"><div class="fill" id="fill"></div></div>
+    </section>
+    <div class="section-title">На сегодня</div>
+    <div class="list" id="list"></div>
+    <form id="form"><input id="new-task" maxlength="70" placeholder="Добавить своё дело…" aria-label="Новое дело"><button class="add" aria-label="Добавить дело">+</button></form>
+    <aside class="quote"><small>Напоминание себе</small><p>«Маленький шаг — тоже движение вперёд»</p></aside>
+    <p class="hint">Дела сохраняются на этом устройстве.</p>
+  </main>
+  <script>
+    const key = 'moy-den-tasks-v1';
+    const defaults = [
+      { text: 'Выпить стакан воды', done: false },
+      { text: 'Выйти на короткую прогулку', done: false },
+      { text: 'Сделать что-то приятное для себя', done: false }
+    ];
+    let tasks;
+    try { tasks = JSON.parse(localStorage.getItem(key)) || defaults; } catch { tasks = defaults; }
+    const list = document.querySelector('#list');
+    function save() { localStorage.setItem(key, JSON.stringify(tasks)); }
+    function render() {
+      list.replaceChildren();
+      tasks.forEach((task, i) => {
+        const row = document.createElement('div'); row.className = 'task' + (task.done ? ' done' : '');
+        const toggle = document.createElement('button'); toggle.className = 'task' + (task.done ? ' done' : ''); toggle.setAttribute('aria-label', (task.done ? 'Отметить незавершённым: ' : 'Отметить выполненным: ') + task.text);
+        const check = document.createElement('span'); check.className = 'check'; check.textContent = task.done ? '✓' : '';
+        const label = document.createElement('span'); label.className = 'label'; label.textContent = task.text;
+        toggle.append(check, label); toggle.addEventListener('click', () => { tasks[i].done = !tasks[i].done; save(); render(); });
+        const del = document.createElement('button'); del.className = 'delete'; del.type = 'button'; del.textContent = '×'; del.setAttribute('aria-label', 'Удалить: ' + task.text); del.addEventListener('click', () => { tasks.splice(i, 1); save(); render(); });
+        row.append(toggle, del); list.append(row);
+      });
+      const done = tasks.filter(t => t.done).length;
+      document.querySelector('#count').textContent = `${done} из ${tasks.length}`;
+      document.querySelector('#fill').style.width = tasks.length ? `${done / tasks.length * 100}%` : '0%';
+    }
+    document.querySelector('#form').addEventListener('submit', event => {
+      event.preventDefault(); const input = document.querySelector('#new-task'); const text = input.value.trim();
+      if (!text) return; tasks.push({ text, done: false }); input.value = ''; save(); render();
+    });
+    document.querySelector('#today').textContent = new Intl.DateTimeFormat('ru-RU', { weekday:'long', day:'numeric', month:'long' }).format(new Date());
+    render();
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(() => {});
+  </script>
+</body>
+</html>
